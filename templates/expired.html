@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="expired-container">
+    <div class="glass-card expired-card">
+        <div class="expired-icon">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+        </div>
+        <h1 class="expired-title">Link Expired</h1>
+        <p class="expired-message">This link has expired after 24 hours.</p>
+        
+        <div class="expired-countdown">
+            <div class="countdown-label">Link Created</div>
+            <div class="countdown-timer">24 Hours Ago</div>
+        </div>
+        
+        <p class="expired-detail">
+            Link Code: 
+            <code>{{ code }}</code>
+        </p>
+        
+        <div class="expired-actions">
+            <a href="/" class="btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Create New Link
+            </a>
+            <a href="/dashboard-secret" class="btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 3v18h18M3 12h18M3 9h18M3 6h18M3 15h18M3 18h18"/>
+                </svg>
+                View Dashboard
+            </a>
+        </div>
+        
+        <div class="expired-note" style="margin-top: 1.5rem; font-size: 0.75rem; color: rgba(255,255,255,0.3);">
+            Links automatically expire 24 hours after creation for security and privacy
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,2588 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">Live Location Analytics</h1>
+        <p class="dashboard-subtitle">Track visitor locations in real-time</p>
+    </div>
+    
+    <!-- Summary Stats -->
+    <div class="stats-grid">
+        <div class="glass-card stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+            </div>
+            <div class="stat-value">{{ locations|length }}</div>
+            <div class="stat-label">Total Locations</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="12 6 12 12 16 14" fill="currentColor"></polygon>
+                </svg>
+            </div>
+            <div class="stat-value">{{ locations|selectattr('is_live')|list|length }}</div>
+            <div class="stat-label">Live Tracking</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+            </div>
+            <div class="stat-value">{{ active_links|length if active_links else 0 }}</div>
+            <div class="stat-label">Active Links</div>
+        </div>
+        <div class="glass-card stat-card">
+            <div class="stat-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="20" x2="12" y2="10"></line>
+                    <line x1="18" y1="20" x2="18" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="16"></line>
+                </svg>
+            </div>
+            <div class="stat-value">{{ expired_links|length if expired_links else 0 }}</div>
+            <div class="stat-label">Expired Links</div>
+        </div>
+    </div>
+    
+    <!-- API Key Management Section -->
+    <div class="api-section">
+        <div class="section-header">
+            <div class="header-title">
+                <h2 class="section-title">API Key Management</h2>
+                <p class="section-subtitle">Generate and manage API keys for programmatic access</p>
+            </div>
+            <div class="main-switcher">
+                <button id="toggleApiSection" class="toggle-section-btn">
+                    <span class="toggle-icon">▼</span>
+                    <span class="toggle-text">Hide API Management</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="apiSectionContent" class="api-section-content">
+            <div class="api-key-generator">
+                <button id="showGenerateModalBtn" class="generate-api-key-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                    </svg>
+                    Generate New API Key
+                </button>
+            </div>
+            
+            <div id="newApiKeyDisplay" class="new-api-key-display" style="display: none;">
+                <div class="api-key-header">
+                    <span class="api-key-label">Your New API Key (shown only once):</span>
+                    <button class="close-key-display" onclick="hideNewKeyDisplay()">×</button>
+                </div>
+                <div class="api-key-box">
+                    <code id="newApiKey" class="api-key-code"></code>
+                    <button class="copy-key-btn" onclick="copyNewApiKey()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                <p class="api-key-warning">⚠️ Make sure to copy this key now. It won't be shown again!</p>
+            </div>
+            
+            <div class="api-keys-list">
+                <h3 class="keys-list-title">Your API Keys</h3>
+                <div class="keys-table-container">
+                    <table class="api-keys-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Project Name</th>
+                                <th>Key Prefix</th>
+                                <th>Created</th>
+                                <th>Requests</th>
+                                <th>Last Used</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key in api_keys %}
+                            <tr data-key-id="{{ key.id }}">
+                                <td class="key-id-cell">#{{ key.id }}</td>
+                                <td class="project-name-cell">
+                                    <span class="project-name" data-key-id="{{ key.id }}">{{ key.project_name or 'Unnamed Project' }}</span>
+                                </td>
+                                <td class="key-prefix-cell">
+                                    <code>{{ key.prefix }}****</code>
+                                    <button class="copy-prefix-btn" onclick="copyToClipboard('{{ key.prefix }}****')" title="Copy masked key">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                    </button>
+                                </td>
+                                <td class="date-cell">{{ key.created_at[:10] if key.created_at else 'N/A' }}</td>
+                                <td class="stats-cell">{{ key.request_count or 0 }}</td>
+                                <td class="date-cell">{{ key.last_used_at[:10] if key.last_used_at else 'Never' }}</td>
+                                <td class="status-cell">
+                                    {% if key.is_active %}
+                                        <span class="active-status">● Active</span>
+                                    {% else %}
+                                        <span class="inactive-status">● Revoked</span>
+                                    {% endif %}
+                                </td>
+                                <td class="actions-cell">
+                                    <div class="action-buttons">
+                                        <button class="edit-key-btn" onclick="showEditModal({{ key.id }})" title="Edit Project Name">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M17 3l4 4-7 7H10v-4l7-7z"></path>
+                                                <path d="M4 20h16"></path>
+                                            </svg>
+                                            Edit
+                                        </button>
+                                        {% if key.is_active %}
+                                            <button class="revoke-key-btn" onclick="showRevokeModal({{ key.id }})" title="Revoke Key">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                                                </svg>
+                                                Revoke
+                                            </button>
+                                        {% endif %}
+                                        <button class="delete-key-btn" onclick="showDeleteKeyModal({{ key.id }}, '{{ key.project_name or 'Unnamed' }}')" title="Delete Permanently">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                                            </svg>
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="empty-table">No API keys generated yet. Click "Generate New API Key" to create one.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="api-docs-note">
+                <div class="note-icon">ℹ️</div>
+                <div class="note-content">
+                    <strong>API Usage:</strong> Use your API key with the <code>Authorization: Bearer &lt;api_key&gt;</code> header.<br>
+                    <strong>Endpoint:</strong> <code>POST /api/shorten</code> with JSON body: <code>{"url": "https://example.com"}</code>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Link Management Section with Hide/Show Switcher -->
+    <div class="links-management-section">
+        <div class="section-header">
+            <div class="header-title">
+                <h2 class="section-title">Link Management</h2>
+                <p class="section-subtitle">View and manage your active and expired links</p>
+            </div>
+            <div class="main-switcher">
+                <button id="toggleLinksSection" class="toggle-section-btn">
+                    <span class="toggle-icon">▼</span>
+                    <span class="toggle-text">Hide Link Management</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="linksSectionContent" class="links-section-content">
+            <!-- Inner Tab Switcher -->
+            <div class="inner-switcher-container">
+                <button class="inner-switcher-btn active" data-tab="active">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 8v4l3 3"></path>
+                    </svg>
+                    Active Links
+                    <span class="badge active-badge">{{ active_links|length if active_links else 0 }}</span>
+                </button>
+                <button class="inner-switcher-btn" data-tab="expired">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    Expired Links
+                    <span class="badge expired-badge">{{ expired_links|length if expired_links else 0 }}</span>
+                </button>
+            </div>
+            
+            <!-- Active Links Table -->
+            <div id="activeLinksTab" class="links-tab active">
+                <div class="links-table-container">
+                    <table class="links-table">
+                        <thead>
+                            <tr>
+                                <th>Short URL</th>
+                                <th>Original URL</th>
+                                <th>Clicks</th>
+                                <th>Locations</th>
+                                <th>Created</th>
+                                <th>Expires In</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in active_links %}
+                            <tr data-link-code="{{ link.code }}">
+                                <td class="link-cell">
+                                    <code class="link-code-short">{{ link.code }}</code>
+                                    <button class="copy-short-btn" onclick="copyToClipboard('{{ request.host_url }}{{ link.code }}')" title="Copy link">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                        </svg>
+                                    </button>
+                                </td>
+                                <td class="original-url-cell" title="{{ link.original_url }}">
+                                    {{ link.original_url[:50] }}{% if link.original_url|length > 50 %}...{% endif %}
+                                </td>
+                                <td class="stats-cell">{{ link.click_count or 0 }}</td>
+                                <td class="stats-cell">{{ link.location_count or 0 }}</td>
+                                <td class="date-cell">{{ link.created_at[:10] if link.created_at else 'N/A' }}</td>
+                                <td class="expiry-cell">
+                                    {% if link.seconds_remaining and link.seconds_remaining > 0 %}
+                                        <span class="expiry-timer" data-seconds="{{ link.seconds_remaining }}">
+                                            {{ (link.seconds_remaining // 3600)|int }}h {{ ((link.seconds_remaining % 3600) // 60)|int }}m
+                                        </span>
+                                    {% else %}
+                                        <span class="expired-badge-small">Expiring soon</span>
+                                    {% endif %}
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="delete-link-btn" onclick="showDeleteLinkModal('{{ link.code }}')" title="Delete Link">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="empty-table">No active links. Create your first link on the home page!</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Expired Links Table -->
+            <div id="expiredLinksTab" class="links-tab">
+                <div class="links-table-container">
+                    <table class="links-table">
+                        <thead>
+                            <tr>
+                                <th>Short URL</th>
+                                <th>Original URL</th>
+                                <th>Clicks</th>
+                                <th>Locations</th>
+                                <th>Created</th>
+                                <th>Expired On</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in expired_links %}
+                            <tr data-link-code="{{ link.code }}">
+                                <td class="link-cell">
+                                    <code class="link-code-short expired-code">{{ link.code }}</code>
+                                </td>
+                                <td class="original-url-cell" title="{{ link.original_url }}">
+                                    {{ link.original_url[:50] }}{% if link.original_url|length > 50 %}...{% endif %}
+                                </td>
+                                <td class="stats-cell">{{ link.click_count or 0 }}</td>
+                                <td class="stats-cell">{{ link.location_count or 0 }}</td>
+                                <td class="date-cell">{{ link.created_at[:10] if link.created_at else 'N/A' }}</td>
+                                <td class="expiry-cell">
+                                    <span class="expired-date">{{ link.expires_at[:10] if link.expires_at else 'N/A' }}</span>
+                                </td>
+                                <td class="actions-cell">
+                                    <button class="delete-link-btn" onclick="showDeleteLinkModal('{{ link.code }}')" title="Delete Link">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="3 6 5 6 21 6"></polyline>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="7" class="empty-table">No expired links found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Location Cards Grid -->
+    <div class="locations-section">
+        <div class="section-header">
+            <h2 class="section-title">Location History</h2>
+            <p class="section-subtitle">Recent visitor locations (max 50)</p>
+        </div>
+        <div class="locations-grid">
+            {% for loc in locations %}
+            <div class="location-card" data-lat="{{ loc.latitude }}" data-lng="{{ loc.longitude }}" data-id="{{ loc.id }}">
+                <div class="card-header-badge">
+                    {% if loc.is_live %}
+                    <span class="live-badge">
+                        <span class="pulse-dot"></span>
+                        LIVE
+                    </span>
+                    {% else %}
+                    <span class="single-badge">SINGLE</span>
+                    {% endif %}
+                    <div class="header-actions">
+                        <span class="timestamp">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; margin-right: 4px;">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            {{ loc.timestamp[:19].replace('T', ' ') }}
+                        </span>
+                        <button class="delete-location-btn" onclick="showDeleteLocationModal({{ loc.id }})" title="Delete Location">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-content">
+                    <div class="link-info">
+                        <div class="link-code">
+                            <span class="label">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                </svg>
+                                Link Code:
+                            </span>
+                            <code>{{ loc.link_code }}</code>
+                        </div>
+                        <div class="link-title" title="{{ loc.title }}">
+                            <span class="label">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                    <polyline points="22 6 12 13 2 6"></polyline>
+                                </svg>
+                                Page:
+                            </span>
+                            <span>{{ loc.title[:50] if loc.title else 'Untitled' }}{% if loc.title and loc.title|length > 50 %}...{% endif %}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="coordinates">
+                        <div class="coord-box">
+                            <span class="coord-label">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="2" x2="12" y2="6"></line>
+                                    <line x1="12" y1="18" x2="12" y2="22"></line>
+                                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                                    <line x1="2" y1="12" x2="6" y2="12"></line>
+                                    <line x1="18" y1="12" x2="22" y2="12"></line>
+                                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+                                </svg>
+                                Latitude
+                            </span>
+                            <span class="coord-value">{{ loc.latitude|round(6) }}</span>
+                        </div>
+                        <div class="coord-box">
+                            <span class="coord-label">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="2" x2="12" y2="6"></line>
+                                    <line x1="12" y1="18" x2="12" y2="22"></line>
+                                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                                    <line x1="2" y1="12" x2="6" y2="12"></line>
+                                    <line x1="18" y1="12" x2="22" y2="12"></line>
+                                </svg>
+                                Longitude
+                            </span>
+                            <span class="coord-value">{{ loc.longitude|round(6) }}</span>
+                        </div>
+                        {% if loc.accuracy %}
+                        <div class="coord-box">
+                            <span class="coord-label">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M12 8v4l3 3"></path>
+                                </svg>
+                                Accuracy
+                            </span>
+                            <span class="coord-value">{{ loc.accuracy|round(1) }}m</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="map-links">
+                        <a href="https://www.google.com/maps?q={{ loc.latitude }},{{ loc.longitude }}" 
+                           target="_blank" 
+                           class="map-btn google-maps">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            View on Google Maps
+                        </a>
+                        <a href="https://www.openstreetmap.org/?mlat={{ loc.latitude }}&mlon={{ loc.longitude }}#map=15/{{ loc.latitude }}/{{ loc.longitude }}"
+                           target="_blank"
+                           class="map-btn osm">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="3 6 12 2 21 6 12 10 3 6"></polygon>
+                                <line x1="12" y1="22" x2="12" y2="10"></line>
+                                <line x1="3" y1="6" x2="3" y2="18"></line>
+                                <line x1="21" y1="6" x2="21" y2="18"></line>
+                                <line x1="12" y1="14" x2="21" y2="18"></line>
+                                <line x1="12" y1="14" x2="3" y2="18"></line>
+                            </svg>
+                            OpenStreetMap
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state-card">
+                <div class="empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                </div>
+                <h3>No Location Data Yet</h3>
+                <p>Location data will appear here when users click "Continue to Website" and grant location permission.</p>
+                <a href="/" class="btn-primary" style="display: inline-block; margin-top: 1rem;">Create Your First Link →</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Generate API Key Modal with Project Name -->
+<div id="generateKeyModal" class="custom-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path>
+                </svg>
+            </div>
+            <h3 class="modal-title" style="color: #3b82f6;">Generate API Key</h3>
+            <button class="modal-close" onclick="closeGenerateModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 1rem;">Please enter the project name where this API key will be used:</p>
+            <input type="text" id="projectNameInput" class="project-name-input" placeholder="e.g., My Production App, Website Backend, etc." autocomplete="off">
+            <p class="modal-warning" style="margin-top: 1rem;">⚠️ The API key will be shown only once after generation. Make sure to copy and store it securely.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" onclick="closeGenerateModal()">Cancel</button>
+            <button class="modal-btn modal-btn-generate" id="confirmGenerateBtn">Generate Key</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit API Key Modal -->
+<div id="editKeyModal" class="custom-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.5">
+                    <path d="M17 3l4 4-7 7H10v-4l7-7z"></path>
+                    <path d="M4 20h16"></path>
+                </svg>
+            </div>
+            <h3 class="modal-title" style="color: #60a5fa;">Edit API Key</h3>
+            <button class="modal-close" onclick="closeEditModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="key-info-display">
+                <div class="info-row">
+                    <span class="info-label">API Key ID:</span>
+                    <span id="editKeyId" class="info-value">#</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Key Prefix:</span>
+                    <code id="editKeyPrefix" class="info-value key-prefix-display"></code>
+                </div>
+            </div>
+            <p style="margin: 1rem 0 0.5rem 0;">Project Name:</p>
+            <input type="text" id="editProjectNameInput" class="project-name-input" placeholder="Enter new project name" autocomplete="off">
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" onclick="closeEditModal()">Cancel</button>
+            <button class="modal-btn modal-btn-update" id="confirmUpdateBtn">Update Project Name</button>
+        </div>
+    </div>
+</div>
+
+<!-- Revoke API Key Modal -->
+<div id="revokeModal" class="custom-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h3 class="modal-title" style="color: #f59e0b;">Revoke API Key</h3>
+            <button class="modal-close" onclick="closeRevokeModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="revokeModalMessage">Are you sure you want to revoke this API key?</p>
+            <p class="modal-warning">⚠️ This action can be undone. Revoked keys will no longer work for API authentication.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" onclick="closeRevokeModal()">Cancel</button>
+            <button class="modal-btn modal-btn-confirm" id="confirmRevokeBtn">Revoke Key</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete API Key Modal (Permanent) -->
+<div id="deleteKeyModal" class="custom-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+            </div>
+            <h3 class="modal-title" style="color: #ef4444;">Delete API Key</h3>
+            <button class="modal-close" onclick="closeDeleteKeyModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="deleteKeyModalMessage">Are you sure you want to permanently delete this API key?</p>
+            <p class="modal-warning">⚠️ This action cannot be undone. The key will be permanently removed from the database.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" onclick="closeDeleteKeyModal()">Cancel</button>
+            <button class="modal-btn modal-btn-confirm" id="confirmDeleteKeyBtn">Delete Permanently</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Link/Location Modal -->
+<div id="deleteModal" class="custom-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-container">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h3 class="modal-title">Confirm Deletion</h3>
+            <button class="modal-close" onclick="closeModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="modalMessage">Are you sure you want to delete this item?</p>
+            <p class="modal-warning">⚠️ This action cannot be undone. All associated data (clicks, locations) will be permanently deleted.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="modal-btn modal-btn-confirm" id="confirmDeleteBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let pendingDeleteAction = null;
+    let pendingDeleteType = null;
+    let pendingRevokeKeyId = null;
+    let pendingDeleteKeyId = null;
+    let pendingDeleteKeyName = null;
+    let pendingEditKeyId = null;
+    let newApiKeyValue = null;
+    
+    // Show Generate Modal
+    document.getElementById('showGenerateModalBtn').addEventListener('click', () => {
+        document.getElementById('generateKeyModal').classList.add('active');
+        document.getElementById('projectNameInput').value = '';
+        document.getElementById('projectNameInput').focus();
+    });
+    
+    function closeGenerateModal() {
+        document.getElementById('generateKeyModal').classList.remove('active');
+    }
+    
+    // Generate API Key with Project Name
+    document.getElementById('confirmGenerateBtn').addEventListener('click', async () => {
+        const projectName = document.getElementById('projectNameInput').value.trim();
+        
+        if (!projectName) {
+            showToast('Please enter a project name', 'error');
+            document.getElementById('projectNameInput').focus();
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/generate-api-key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ project_name: projectName })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                newApiKeyValue = data.api_key;
+                document.getElementById('newApiKey').textContent = data.api_key;
+                document.getElementById('newApiKeyDisplay').style.display = 'block';
+                
+                closeGenerateModal();
+                
+                // Scroll to the new key display
+                document.getElementById('newApiKeyDisplay').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                showToast(`API key generated for "${projectName}"!`, 'success');
+                
+                // Refresh the page after 3 seconds to show the new key in the list
+                setTimeout(() => {
+                    window.location.reload();
+                }, 5000);
+            } else {
+                showToast(data.error || 'Failed to generate API key', 'error');
+            }
+        } catch (error) {
+            console.error('Generate API key error:', error);
+            showToast('Failed to generate API key', 'error');
+        }
+    });
+    
+    // Edit API Key
+    async function showEditModal(keyId) {
+        pendingEditKeyId = keyId;
+        
+        try {
+            // Fetch the key prefix and current project name
+            const response = await fetch(`/api/get-api-key-prefix/${keyId}`);
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                document.getElementById('editKeyId').textContent = `#${keyId}`;
+                document.getElementById('editKeyPrefix').textContent = data.prefix + '****';
+                document.getElementById('editProjectNameInput').value = data.project_name || '';
+                document.getElementById('editKeyModal').classList.add('active');
+                document.getElementById('editProjectNameInput').focus();
+            } else {
+                showToast('Failed to load API key information', 'error');
+            }
+        } catch (error) {
+            console.error('Load API key info error:', error);
+            showToast('Failed to load API key information', 'error');
+        }
+    }
+    
+    function closeEditModal() {
+        document.getElementById('editKeyModal').classList.remove('active');
+        pendingEditKeyId = null;
+    }
+    
+    async function updateApiKey(keyId, projectName) {
+        try {
+            const response = await fetch(`/api/update-api-key/${keyId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ project_name: projectName })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showToast('Project name updated successfully', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.error || 'Failed to update project name', 'error');
+            }
+        } catch (error) {
+            console.error('Update API key error:', error);
+            showToast('Failed to update project name', 'error');
+        }
+    }
+    
+    document.getElementById('confirmUpdateBtn').addEventListener('click', async () => {
+        if (pendingEditKeyId) {
+            const newProjectName = document.getElementById('editProjectNameInput').value.trim();
+            
+            if (!newProjectName) {
+                showToast('Please enter a project name', 'error');
+                document.getElementById('editProjectNameInput').focus();
+                return;
+            }
+            
+            await updateApiKey(pendingEditKeyId, newProjectName);
+            closeEditModal();
+        }
+    });
+    
+    function hideNewKeyDisplay() {
+        document.getElementById('newApiKeyDisplay').style.display = 'none';
+        newApiKeyValue = null;
+    }
+    
+    function copyNewApiKey() {
+        if (newApiKeyValue) {
+            copyToClipboard(newApiKeyValue);
+            showToast('API key copied to clipboard!', 'success');
+        }
+    }
+    
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Copied to clipboard!', 'success');
+        }).catch(() => {
+            showToast('Failed to copy', 'error');
+        });
+    }
+    
+    // Revoke API Key
+    function showRevokeModal(keyId) {
+        pendingRevokeKeyId = keyId;
+        document.getElementById('revokeModalMessage').innerHTML = `Are you sure you want to revoke API key #${keyId}?`;
+        document.getElementById('revokeModal').classList.add('active');
+    }
+    
+    function closeRevokeModal() {
+        document.getElementById('revokeModal').classList.remove('active');
+        pendingRevokeKeyId = null;
+    }
+    
+    async function revokeApiKey(keyId) {
+        try {
+            const response = await fetch(`/api/revoke-api-key/${keyId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showToast('API key revoked successfully', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.error || 'Failed to revoke API key', 'error');
+            }
+        } catch (error) {
+            console.error('Revoke API key error:', error);
+            showToast('Failed to revoke API key', 'error');
+        }
+    }
+    
+    // Delete API Key (Permanent)
+    function showDeleteKeyModal(keyId, projectName) {
+        pendingDeleteKeyId = keyId;
+        pendingDeleteKeyName = projectName;
+        document.getElementById('deleteKeyModalMessage').innerHTML = `Are you sure you want to permanently delete the API key for "<strong>${projectName}</strong>"?`;
+        document.getElementById('deleteKeyModal').classList.add('active');
+    }
+    
+    function closeDeleteKeyModal() {
+        document.getElementById('deleteKeyModal').classList.remove('active');
+        pendingDeleteKeyId = null;
+        pendingDeleteKeyName = null;
+    }
+    
+    async function deleteApiKey(keyId) {
+        try {
+            const response = await fetch(`/api/delete-api-key/${keyId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showToast('API key deleted permanently', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.error || 'Failed to delete API key', 'error');
+            }
+        } catch (error) {
+            console.error('Delete API key error:', error);
+            showToast('Failed to delete API key', 'error');
+        }
+    }
+    
+    document.getElementById('confirmRevokeBtn').addEventListener('click', async () => {
+        if (pendingRevokeKeyId) {
+            await revokeApiKey(pendingRevokeKeyId);
+            closeRevokeModal();
+        }
+    });
+    
+    document.getElementById('confirmDeleteKeyBtn').addEventListener('click', async () => {
+        if (pendingDeleteKeyId) {
+            await deleteApiKey(pendingDeleteKeyId);
+            closeDeleteKeyModal();
+        }
+    });
+    
+    // Toggle API Management Section Visibility
+    const toggleApiBtn = document.getElementById('toggleApiSection');
+    const apiSectionContent = document.getElementById('apiSectionContent');
+    let isApiSectionVisible = true;
+    
+    if (toggleApiBtn) {
+        toggleApiBtn.addEventListener('click', () => {
+            if (isApiSectionVisible) {
+                apiSectionContent.style.display = 'none';
+                toggleApiBtn.querySelector('.toggle-icon').innerHTML = '▶';
+                toggleApiBtn.querySelector('.toggle-text').innerHTML = 'Show API Management';
+                isApiSectionVisible = false;
+                localStorage.setItem('apiSectionVisible', 'false');
+            } else {
+                apiSectionContent.style.display = 'block';
+                toggleApiBtn.querySelector('.toggle-icon').innerHTML = '▼';
+                toggleApiBtn.querySelector('.toggle-text').innerHTML = 'Hide API Management';
+                isApiSectionVisible = true;
+                localStorage.setItem('apiSectionVisible', 'true');
+            }
+        });
+        
+        const savedApiVisibility = localStorage.getItem('apiSectionVisible');
+        if (savedApiVisibility === 'false') {
+            apiSectionContent.style.display = 'none';
+            toggleApiBtn.querySelector('.toggle-icon').innerHTML = '▶';
+            toggleApiBtn.querySelector('.toggle-text').innerHTML = 'Show API Management';
+            isApiSectionVisible = false;
+        }
+    }
+    
+    // Toggle Link Management Section Visibility
+    const toggleBtn = document.getElementById('toggleLinksSection');
+    const linksSectionContent = document.getElementById('linksSectionContent');
+    let isSectionVisible = true;
+    
+    toggleBtn.addEventListener('click', () => {
+        if (isSectionVisible) {
+            linksSectionContent.style.display = 'none';
+            toggleBtn.querySelector('.toggle-icon').innerHTML = '▶';
+            toggleBtn.querySelector('.toggle-text').innerHTML = 'Show Link Management';
+            isSectionVisible = false;
+            localStorage.setItem('linksSectionVisible', 'false');
+        } else {
+            linksSectionContent.style.display = 'block';
+            toggleBtn.querySelector('.toggle-icon').innerHTML = '▼';
+            toggleBtn.querySelector('.toggle-text').innerHTML = 'Hide Link Management';
+            isSectionVisible = true;
+            localStorage.setItem('linksSectionVisible', 'true');
+        }
+    });
+    
+    const savedVisibility = localStorage.getItem('linksSectionVisible');
+    if (savedVisibility === 'false') {
+        linksSectionContent.style.display = 'none';
+        toggleBtn.querySelector('.toggle-icon').innerHTML = '▶';
+        toggleBtn.querySelector('.toggle-text').innerHTML = 'Show Link Management';
+        isSectionVisible = false;
+    }
+    
+    // Inner tab switching functionality
+    document.querySelectorAll('.inner-switcher-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.inner-switcher-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.links-tab').forEach(tabEl => {
+                tabEl.classList.remove('active');
+            });
+            document.getElementById(`${tab}LinksTab`).classList.add('active');
+        });
+    });
+    
+    // Auto-refresh functionality
+    let autoRefresh = true;
+    let refreshInterval;
+    
+    function startAutoRefresh() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(() => {
+            if (autoRefresh) {
+                fetch(window.location.href)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        
+                        const newGrid = doc.querySelector('.locations-grid');
+                        if (newGrid) {
+                            document.querySelector('.locations-grid').innerHTML = newGrid.innerHTML;
+                        }
+                        
+                        const newActiveTable = doc.querySelector('#activeLinksTab tbody');
+                        if (newActiveTable) {
+                            document.querySelector('#activeLinksTab tbody').innerHTML = newActiveTable.innerHTML;
+                        }
+                        
+                        const newExpiredTable = doc.querySelector('#expiredLinksTab tbody');
+                        if (newExpiredTable) {
+                            document.querySelector('#expiredLinksTab tbody').innerHTML = newExpiredTable.innerHTML;
+                        }
+                        
+                        const activeCount = doc.querySelector('.inner-switcher-btn[data-tab="active"] .badge');
+                        const expiredCount = doc.querySelector('.inner-switcher-btn[data-tab="expired"] .badge');
+                        if (activeCount) {
+                            document.querySelector('.inner-switcher-btn[data-tab="active"] .badge').textContent = activeCount.textContent;
+                        }
+                        if (expiredCount) {
+                            document.querySelector('.inner-switcher-btn[data-tab="expired"] .badge').textContent = expiredCount.textContent;
+                        }
+                        
+                        const activeLinksStat = document.querySelector('.stat-card:nth-child(3) .stat-value');
+                        const expiredLinksStat = document.querySelector('.stat-card:nth-child(4) .stat-value');
+                        if (activeLinksStat && activeCount) {
+                            activeLinksStat.textContent = activeCount.textContent;
+                        }
+                        if (expiredLinksStat && expiredCount) {
+                            expiredLinksStat.textContent = expiredCount.textContent;
+                        }
+                        
+                        if (typeof showToast === 'function') {
+                            showToast('Dashboard refreshed', 'success');
+                        }
+                    })
+                    .catch(err => console.error('Auto-refresh failed:', err));
+            }
+        }, 30000);
+    }
+    
+    startAutoRefresh();
+    
+    // Show delete confirmation modal for link
+    function showDeleteLinkModal(linkCode) {
+        pendingDeleteAction = linkCode;
+        pendingDeleteType = 'link';
+        document.getElementById('modalMessage').innerHTML = `Are you sure you want to delete link "<strong>${linkCode}</strong>"?`;
+        document.getElementById('deleteModal').classList.add('active');
+    }
+    
+    // Show delete confirmation modal for location
+    function showDeleteLocationModal(locationId) {
+        pendingDeleteAction = locationId;
+        pendingDeleteType = 'location';
+        document.getElementById('modalMessage').innerHTML = 'Are you sure you want to delete this location entry?';
+        document.getElementById('deleteModal').classList.add('active');
+    }
+    
+    function closeModal() {
+        document.getElementById('deleteModal').classList.remove('active');
+        pendingDeleteAction = null;
+        pendingDeleteType = null;
+    }
+    
+    async function deleteLink(linkCode) {
+        try {
+            const response = await fetch(`/delete_link/${linkCode}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                if (typeof showToast === 'function') {
+                    showToast(`Link "${linkCode}" deleted successfully`, 'success');
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                if (typeof showToast === 'function') {
+                    showToast(data.error || 'Failed to delete link', 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Delete link error:', error);
+            if (typeof showToast === 'function') {
+                showToast('Failed to delete link', 'error');
+            }
+        }
+    }
+    
+    async function deleteLocation(locationId) {
+        try {
+            const response = await fetch(`/delete_location/${locationId}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                if (typeof showToast === 'function') {
+                    showToast('Location deleted successfully', 'success');
+                }
+                const card = document.querySelector(`.location-card[data-id="${locationId}"]`);
+                if (card) {
+                    card.remove();
+                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                if (typeof showToast === 'function') {
+                    showToast(data.error || 'Failed to delete location', 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Delete location error:', error);
+            if (typeof showToast === 'function') {
+                showToast('Failed to delete location', 'error');
+            }
+        }
+    }
+    
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+        if (pendingDeleteAction && pendingDeleteType) {
+            if (pendingDeleteType === 'link') {
+                await deleteLink(pendingDeleteAction);
+            } else if (pendingDeleteType === 'location') {
+                await deleteLocation(pendingDeleteAction);
+            }
+            closeModal();
+        }
+    });
+    
+    // Close modals when clicking overlay
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', () => {
+            closeModal();
+            closeRevokeModal();
+            closeDeleteKeyModal();
+            closeGenerateModal();
+            closeEditModal();
+        });
+    });
+    
+    // Close modals with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (document.getElementById('deleteModal').classList.contains('active')) {
+                closeModal();
+            }
+            if (document.getElementById('revokeModal').classList.contains('active')) {
+                closeRevokeModal();
+            }
+            if (document.getElementById('deleteKeyModal').classList.contains('active')) {
+                closeDeleteKeyModal();
+            }
+            if (document.getElementById('generateKeyModal').classList.contains('active')) {
+                closeGenerateModal();
+            }
+            if (document.getElementById('editKeyModal').classList.contains('active')) {
+                closeEditModal();
+            }
+        }
+    });
+    
+    // Enter key in project name inputs
+    document.getElementById('projectNameInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('confirmGenerateBtn').click();
+        }
+    });
+    
+    document.getElementById('editProjectNameInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('confirmUpdateBtn').click();
+        }
+    });
+    
+    if (typeof showToast !== 'function') {
+        window.showToast = function(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <div class="toast-content">
+                    <span class="toast-icon">${type === 'success' ? '✓' : '!'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }, 10);
+        };
+    }
+    
+    function updateExpiryTimers() {
+        document.querySelectorAll('.expiry-timer').forEach(timer => {
+            let seconds = parseInt(timer.dataset.seconds);
+            if (seconds > 0) {
+                seconds -= 60;
+                timer.dataset.seconds = seconds;
+                if (seconds > 0) {
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    timer.textContent = `${hours}h ${minutes}m`;
+                } else {
+                    timer.textContent = 'Expired';
+                    timer.className = 'expired-badge-small';
+                }
+            }
+        });
+    }
+    
+    setInterval(updateExpiryTimers, 60000);
+    
+    document.querySelectorAll('.location-card').forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.style.transform = 'translateY(-4px)';
+        });
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translateY(0)';
+        });
+    });
+</script>
+
+<style>
+    /* Dark Theme Colors - keeping existing styles and adding new ones */
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+    
+    .dashboard-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .dashboard-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #e2e8f0;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .dashboard-subtitle {
+        color: #94a3b8;
+        font-size: 1rem;
+    }
+    
+    /* Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(167, 139, 250, 0.3);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+    
+    .stat-icon {
+        color: #a78bfa;
+        margin-bottom: 0.75rem;
+        display: inline-block;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #fff, #a78bfa);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin: 0.5rem 0;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.6);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 500;
+    }
+    
+    /* API Section */
+    .api-section {
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .api-section-content {
+        padding: 1.5rem;
+    }
+    
+    .api-key-generator {
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+    
+    .generate-api-key-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.8rem 1.5rem;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+    
+    .generate-api-key-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+    
+    .project-name-input {
+        width: 100%;
+        padding: 0.75rem;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        color: #e2e8f0;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+    }
+    
+    .project-name-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    
+    .modal-btn-generate {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    }
+    
+    .modal-btn-generate:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+    
+    .modal-btn-update {
+        background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+    }
+    
+    .modal-btn-update:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(96, 165, 250, 0.4);
+    }
+    
+    .key-info-display {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+    }
+    
+    .info-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #94a3b8;
+        min-width: 100px;
+    }
+    
+    .info-value {
+        font-size: 0.9rem;
+        color: #e2e8f0;
+    }
+    
+    .key-prefix-display {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-family: monospace;
+        color: #a78bfa;
+    }
+    
+    .new-api-key-display {
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .api-key-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+    
+    .api-key-label {
+        font-weight: 600;
+        color: #22c55e;
+    }
+    
+    .close-key-display {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: #94a3b8;
+        font-size: 1.5rem;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+    
+    .close-key-display:hover {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+    }
+    
+    .api-key-box {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+    }
+    
+    .api-key-code {
+        flex: 1;
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: #a78bfa;
+        word-break: break-all;
+    }
+    
+    .copy-key-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: rgba(59, 130, 246, 0.2);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 8px;
+        color: #60a5fa;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .copy-key-btn:hover {
+        background: rgba(59, 130, 246, 0.3);
+        transform: scale(1.02);
+    }
+    
+    .api-key-warning {
+        font-size: 0.8rem;
+        color: #f59e0b;
+        margin: 0;
+    }
+    
+    .api-keys-list {
+        margin-top: 1.5rem;
+    }
+    
+    .keys-list-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #e2e8f0;
+        margin-bottom: 1rem;
+    }
+    
+    .keys-table-container {
+        overflow-x: auto;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .api-keys-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .api-keys-table th,
+    .api-keys-table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .api-keys-table th {
+        color: #a78bfa;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: rgba(0, 0, 0, 0.3);
+    }
+    
+    .key-id-cell {
+        font-family: monospace;
+        font-weight: 600;
+        color: #60a5fa;
+    }
+    
+    .project-name-cell {
+        max-width: 200px;
+    }
+    
+    .project-name {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: rgba(96, 165, 250, 0.1);
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #60a5fa;
+        font-weight: 500;
+    }
+    
+    .key-prefix-cell {
+        font-family: monospace;
+    }
+    
+    .copy-prefix-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: none;
+        cursor: pointer;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        margin-left: 0.5rem;
+        transition: all 0.2s ease;
+    }
+    
+    .copy-prefix-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: scale(1.05);
+    }
+    
+    .active-status {
+        color: #22c55e;
+        font-weight: 600;
+    }
+    
+    .inactive-status {
+        color: #ef4444;
+        font-weight: 600;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .edit-key-btn {
+        background: rgba(96, 165, 250, 0.1);
+        border: 1px solid rgba(96, 165, 250, 0.2);
+        cursor: pointer;
+        padding: 0.3rem 0.8rem;
+        border-radius: 6px;
+        color: #60a5fa;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    .edit-key-btn:hover {
+        background: rgba(96, 165, 250, 0.2);
+        transform: scale(1.02);
+    }
+    
+    .revoke-key-btn {
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        cursor: pointer;
+        padding: 0.3rem 0.8rem;
+        border-radius: 6px;
+        color: #f59e0b;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    .revoke-key-btn:hover {
+        background: rgba(245, 158, 11, 0.2);
+        transform: scale(1.02);
+    }
+    
+    .delete-key-btn {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        cursor: pointer;
+        padding: 0.3rem 0.8rem;
+        border-radius: 6px;
+        color: #ef4444;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    .delete-key-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        transform: scale(1.02);
+    }
+    
+    .revoked-label {
+        color: #64748b;
+        font-size: 0.8rem;
+    }
+    
+    .api-docs-note {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: rgba(96, 165, 250, 0.05);
+        border: 1px solid rgba(96, 165, 250, 0.2);
+        border-radius: 12px;
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+    
+    .note-icon {
+        font-size: 1.2rem;
+    }
+    
+    .note-content {
+        flex: 1;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.5;
+    }
+    
+    .note-content code {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-family: monospace;
+        color: #a78bfa;
+    }
+    
+    /* Link Management Section (keeping existing styles) */
+    .links-management-section {
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        background: rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .header-title {
+        flex: 1;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #e2e8f0;
+        margin-bottom: 0.25rem;
+    }
+    
+    .section-subtitle {
+        color: #94a3b8;
+        font-size: 0.85rem;
+    }
+    
+    .main-switcher {
+        display: flex;
+        align-items: center;
+    }
+    
+    .toggle-section-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.25rem;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 40px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #60a5fa;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .toggle-section-btn:hover {
+        background: rgba(59, 130, 246, 0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+    
+    .toggle-icon {
+        font-size: 12px;
+        transition: transform 0.2s ease;
+    }
+    
+    .links-section-content {
+        transition: all 0.3s ease;
+    }
+    
+    .inner-switcher-container {
+        display: flex;
+        gap: 0.5rem;
+        padding: 1rem 1.5rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .inner-switcher-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.25rem;
+        background: transparent;
+        border: none;
+        border-radius: 32px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #94a3b8;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .inner-switcher-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .inner-switcher-btn.active {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+    
+    .badge {
+        padding: 0.15rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .active-badge {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+    }
+    
+    .inner-switcher-btn.active .active-badge {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    
+    .expired-badge {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+    }
+    
+    .inner-switcher-btn.active .expired-badge {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    
+    .links-tab {
+        display: none;
+        padding: 1.5rem;
+    }
+    
+    .links-tab.active {
+        display: block;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .links-table-container {
+        overflow-x: auto;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .links-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .links-table th,
+    .links-table td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .links-table th {
+        color: #a78bfa;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: rgba(0, 0, 0, 0.3);
+    }
+    
+    .links-table td {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.9rem;
+    }
+    
+    .links-table tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+    
+    .link-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .link-code-short {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #a78bfa;
+    }
+    
+    .expired-code {
+        color: #ef4444;
+        text-decoration: line-through;
+    }
+    
+    .copy-short-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+    }
+    
+    .copy-short-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: scale(1.05);
+    }
+    
+    .original-url-cell {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .stats-cell {
+        text-align: center;
+        font-weight: 600;
+        color: #60a5fa;
+    }
+    
+    .date-cell {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-family: monospace;
+    }
+    
+    .expiry-cell {
+        font-size: 0.85rem;
+    }
+    
+    .expiry-timer {
+        color: #fbbf24;
+        font-family: monospace;
+        font-weight: 600;
+    }
+    
+    .expired-badge-small {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .expired-date {
+        color: #ef4444;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+    
+    .actions-cell {
+        text-align: center;
+    }
+    
+    .delete-link-btn {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        cursor: pointer;
+        padding: 0.35rem 0.6rem;
+        border-radius: 8px;
+        color: #ef4444;
+        transition: all 0.2s ease;
+    }
+    
+    .delete-link-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        transform: scale(1.05);
+    }
+    
+    .empty-table {
+        text-align: center;
+        padding: 2rem;
+        color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .locations-section {
+        margin-bottom: 2rem;
+    }
+    
+    .locations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .location-card {
+        background: linear-gradient(135deg, #1e1e2e 0%, #1a1a2e 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        animation: fadeInUp 0.4s ease-out;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .location-card:hover {
+        border-color: rgba(167, 139, 250, 0.3);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .card-header-badge {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        background: rgba(0, 0, 0, 0.4);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .delete-location-btn {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 6px;
+        color: #ef4444;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+    }
+    
+    .delete-location-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        transform: scale(1.1);
+    }
+    
+    .live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(34, 197, 94, 0.15);
+        color: #22c55e;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    
+    .single-badge {
+        background: rgba(96, 165, 250, 0.15);
+        color: #60a5fa;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        border: 1px solid rgba(96, 165, 250, 0.3);
+    }
+    
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #22c55e;
+        border-radius: 50%;
+        animation: pulse 1.5s ease-in-out infinite;
+        box-shadow: 0 0 5px #22c55e;
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.5;
+            transform: scale(1.2);
+        }
+    }
+    
+    .timestamp {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-family: monospace;
+        display: inline-flex;
+        align-items: center;
+    }
+    
+    .card-content {
+        padding: 1.25rem;
+    }
+    
+    .link-info {
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .link-code {
+        margin-bottom: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .link-code code {
+        background: rgba(0, 0, 0, 0.5);
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #a78bfa;
+        font-family: monospace;
+    }
+    
+    .link-title {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.4;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .label {
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .coordinates {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+    
+    .coord-box {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 0.6rem;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .coord-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        font-size: 0.65rem;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        margin-bottom: 0.35rem;
+    }
+    
+    .coord-value {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        font-family: monospace;
+        color: #a78bfa;
+    }
+    
+    .map-links {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    
+    .map-btn {
+        flex: 1;
+        text-align: center;
+        padding: 0.6rem;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    
+    .google-maps {
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    
+    .google-maps:hover {
+        background: rgba(34, 197, 94, 0.2);
+        transform: translateY(-2px);
+        border-color: rgba(34, 197, 94, 0.4);
+    }
+    
+    .osm {
+        background: rgba(96, 165, 250, 0.1);
+        color: #60a5fa;
+        border: 1px solid rgba(96, 165, 250, 0.2);
+    }
+    
+    .osm:hover {
+        background: rgba(96, 165, 250, 0.2);
+        transform: translateY(-2px);
+        border-color: rgba(96, 165, 250, 0.4);
+    }
+    
+    .custom-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .custom-modal.active {
+        display: flex;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    .modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(4px);
+    }
+    
+    .modal-container {
+        position: relative;
+        background: linear-gradient(135deg, #1e1e2e 0%, #1a1a2e 100%);
+        border-radius: 20px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        animation: slideUp 0.3s ease-out;
+    }
+    
+    .modal-container[style*="max-width: 500px"] {
+        max-width: 500px;
+    }
+    
+    @keyframes slideUp {
+        from {
+            transform: translateY(50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .modal-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+        position: relative;
+    }
+    
+    .modal-icon {
+        flex-shrink: 0;
+    }
+    
+    .modal-title {
+        flex: 1;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .modal-close {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 8px;
+        color: #94a3b8;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+    }
+    
+    .modal-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #e2e8f0;
+        transform: scale(1.05);
+    }
+    
+    .modal-body {
+        padding: 1rem 1.5rem;
+    }
+    
+    .modal-body p {
+        margin: 0.5rem 0;
+        color: #e2e8f0;
+        font-size: 1rem;
+        line-height: 1.5;
+    }
+    
+    .modal-warning {
+        color: #f59e0b !important;
+        font-size: 0.85rem !important;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem !important;
+        padding-top: 0.75rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .modal-footer {
+        display: flex;
+        gap: 1rem;
+        padding: 0.5rem 1.5rem 1.5rem 1.5rem;
+    }
+    
+    .modal-btn {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+    }
+    
+    .modal-btn-cancel {
+        background: rgba(255, 255, 255, 0.05);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .modal-btn-cancel:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #e2e8f0;
+        transform: translateY(-2px);
+    }
+    
+    .modal-btn-confirm {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+    
+    .modal-btn-confirm:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    }
+    
+    .empty-state-card {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 3rem 2rem;
+        background: linear-gradient(135deg, #1e1e2e 0%, #1a1a2e 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+        color: #a78bfa;
+    }
+    
+    .empty-state-card h3 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, #fff, #a78bfa);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    
+    .empty-state-card p {
+        color: rgba(255, 255, 255, 0.5);
+        max-width: 400px;
+        margin: 0 auto;
+    }
+    
+    .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #1e1e2e 0%, #1a1a2e 100%);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        border-radius: 12px;
+        padding: 1rem 1.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
+        z-index: 1100;
+    }
+    
+    .toast.show {
+        transform: translateX(0);
+    }
+    
+    .toast-content {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #e2e8f0;
+    }
+    
+    .toast-icon {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    
+    .toast-success .toast-icon {
+        color: #22c55e;
+    }
+    
+    .toast-error .toast-icon {
+        color: #ef4444;
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-title {
+            font-size: 1.75rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .inner-switcher-container {
+            flex-direction: column;
+        }
+        
+        .inner-switcher-btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .locations-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        .coordinates {
+            grid-template-columns: 1fr;
+        }
+        
+        .map-links {
+            flex-direction: column;
+        }
+        
+        .map-btn {
+            width: 100%;
+        }
+        
+        .stat-card {
+            padding: 1rem;
+        }
+        
+        .links-table th,
+        .links-table td {
+            padding: 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .original-url-cell {
+            max-width: 150px;
+        }
+        
+        .modal-container {
+            width: 95%;
+            margin: 1rem;
+        }
+        
+        .modal-header {
+            padding: 1rem 1rem 0.25rem 1rem;
+        }
+        
+        .modal-body {
+            padding: 0.75rem 1rem;
+        }
+        
+        .modal-footer {
+            padding: 0.5rem 1rem 1rem 1rem;
+        }
+        
+        .links-tab {
+            padding: 1rem;
+        }
+        
+        .api-key-box {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .api-keys-table {
+            font-size: 0.75rem;
+        }
+        
+        .api-keys-table th,
+        .api-keys-table td {
+            padding: 0.5rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .project-name-cell {
+            max-width: 120px;
+        }
+        
+        .info-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .info-label {
+            min-width: auto;
+        }
+    }
+    
+    .dashboard-container::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .dashboard-container::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+    }
+    
+    .dashboard-container::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+    }
+    
+    .dashboard-container::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+</style>
+{% endblock %}

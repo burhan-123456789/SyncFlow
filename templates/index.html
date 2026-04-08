@@ -1,0 +1,167 @@
+<!-- ============================================================ -->
+<!-- FILE: templates/index.html (FIXED - WITH PROPER ICONS) -->
+<!-- ============================================================ -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="glass-card hero-card">
+        <h1 class="hero-title">Smart Link <span class="gradient-text">Shortener</span></h1>
+        <p class="hero-subtitle">Create memorable, branded short links with automatic previews</p>
+        
+        <div class="input-group">
+            <div class="url-input-wrapper">
+                <span class="url-icon">🔗</span>
+                <input type="text" id="urlInput" class="url-input" placeholder="Paste your long URL here... (e.g., youtube.com/watch?v=...)">
+            </div>
+            <button id="generateBtn" class="btn-primary">
+                <span class="btn-text">Generate Link</span>
+                <span class="btn-icon">→</span>
+            </button>
+        </div>
+        
+        <div id="resultContainer" class="result-container" style="display: none;">
+            <div class="result-card">
+                <div class="result-header">
+                    <span class="result-label">Your Smart Link</span>
+                    <button class="copy-btn" id="copyBtn">Copy</button>
+                </div>
+                <div class="result-url" id="generatedUrl"></div>
+                <div class="result-actions">
+                    <a href="#" id="previewLink" class="btn-secondary" target="_blank">Preview →</a>
+                </div>
+            </div>
+        </div>
+        
+        <div id="loadingIndicator" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <span>Creating your smart link...</span>
+        </div>
+    </div>
+    
+    <div class="features-grid">
+        <div class="feature-card glass-card">
+            <div class="feature-icon">
+                <i class="fas fa-eye"></i>
+            </div>
+            <h3>Smart Preview</h3>
+            <p>Auto-fetch titles, images & descriptions from any webpage</p>
+        </div>
+        <div class="feature-card glass-card">
+            <div class="feature-icon">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <h3>Location Analytics</h3>
+            <p>Track where your clicks come from (with user consent)</p>
+        </div>
+        <div class="feature-card glass-card">
+            <div class="feature-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h3>Click Tracking</h3>
+            <p>Real-time analytics dashboard for all your links</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const generateBtn = document.getElementById('generateBtn');
+    const urlInput = document.getElementById('urlInput');
+    const resultContainer = document.getElementById('resultContainer');
+    const generatedUrlSpan = document.getElementById('generatedUrl');
+    const previewLink = document.getElementById('previewLink');
+    const copyBtn = document.getElementById('copyBtn');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    
+    async function generateLink() {
+        event.preventDefault();
+        
+        let url = urlInput.value.trim();
+        
+        if (!url) {
+            showToast('Please enter a URL', 'error');
+            return;
+        }
+        
+        // Add https:// if no protocol is specified
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
+        }
+        
+        // Validate URL format
+        try {
+            new URL(url);
+        } catch (e) {
+            showToast('Please enter a valid URL (e.g., youtube.com/watch?v=... or https://example.com)', 'error');
+            return;
+        }
+        
+        loadingIndicator.style.display = 'flex';
+        resultContainer.style.display = 'none';
+        generateBtn.disabled = true;
+        
+        try {
+            const response = await fetch('/generate', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: url })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                // Construct the full URL for the short link
+                const fullUrl = window.location.origin + '/' + data.slug;
+                generatedUrlSpan.textContent = fullUrl;
+                // Use the same fullUrl for preview
+                previewLink.href = fullUrl;
+                resultContainer.style.display = 'block';
+                showToast('Link generated successfully!', 'success');
+                // Clear the input field
+                urlInput.value = '';
+            } else {
+                showToast(data.error || 'Failed to generate link', 'error');
+            }
+        } catch (error) {
+            console.error('Fetch error:', error);
+            showToast('Cannot connect to server. Make sure Flask is running on port 5000', 'error');
+        } finally {
+            loadingIndicator.style.display = 'none';
+            generateBtn.disabled = false;
+        }
+    }
+    
+    // Generate button click handler
+    generateBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        generateLink();
+    });
+    
+    // Enter key handler
+    urlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            generateLink();
+        }
+    });
+    
+    // Copy button handler
+    copyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const url = generatedUrlSpan.textContent;
+        if (url) {
+            navigator.clipboard.writeText(url).then(() => {
+                showToast('Copied to clipboard!', 'success');
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy';
+                }, 2000);
+            }).catch(() => {
+                showToast('Failed to copy', 'error');
+            });
+        }
+    });
+</script>
+{% endblock %}
